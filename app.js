@@ -1,158 +1,104 @@
-const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a, P=a=>a[R(0,a.length-1)];
-const gcd=(a,b)=>b?gcd(b,a%b):Math.abs(a);
-const sh=a=>a.map(x=>[Math.random(),x]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
-const near=(u,a)=>Math.abs(parseFloat(u)-a);
-// ---- Generators: return {q,a,steps,diag(u)->msg|null,choices?,lang}
-const G={
-// ===== כיתה ג' — תוכנית חדשה (NewProgramGrade3.pdf) =====
-place(){const n=R(1000,9999),d=P([['אלפים',1000],['מאות',100],['עשרות',10],['אחדות',1]]);const v=Math.floor(n/d[1])%10;return{q:`במספר ${n.toLocaleString('en-US')} — מהי ספרת ה${d[0]}?`,a:v,steps:['מימין לשמאל: אחדות, עשרות, מאות, אלפים',`ספרת ה${d[0]} היא ${v}`],diag:u=>String(n).includes(u)?'זו ספרה מהמספר, אבל במקום אחר. ספרו מימין: אחדות, עשרות, מאות, אלפים.':null}},
-cmp(){const a=R(1000,9999),b=P([a,R(1000,9999),a+P([-10,10,-100,100,-1000,1000])]);const s=a>b?'>':a<b?'<':'=';return{q:`השלימו את הסימן: ${a} ⬜ ${b}`,a:s,choices:['<','>','='],steps:['משווים קודם את ספרת האלפים','אם שווה — עוברים למאות, לעשרות ולאחדות'],diag:u=>u!==s&&u!=='='&&s!=='='?'הפה של התנין (הצד הפתוח) פונה למספר הגדול.':null}},
-skip(){const d=P([20,25,50,200,500,1000]),s=R(1,40)*d+P([0,0,5,10]),i=R(1,4);const seq=[0,1,2,3,4,5].map(k=>s+k*d);const show=seq.map((x,k)=>k===i?'___':x).join(', ');return{q:`השלימו את הסדרה: ${show}`,a:seq[i],steps:[`מה ההפרש בין שני איברים סמוכים? ${d}`,`מוסיפים ${d} לאיבר שלפני החסר`],diag:u=>near(u,seq[i])===d?'קפצת קפיצה אחת יותר מדי או פחות מדי. בדקו את ההפרש.':null}},
-add4(){const a=R(1000,6000),b=R(100,3999);return{q:`${a} + ${b} = ?`,a:a+b,steps:['כותבים במאונך — אחדות מתחת לאחדות',`מחברים מימין לשמאל ומעבירים כשיוצא 10 או יותר`],diag:u=>{let n=+u;if(n===a-b)return'חיסרת במקום לחבר.';const e=Math.abs(n-(a+b));if([10,100,1000].includes(e))return'נראה ששכחת להעביר (המרה) לעמודה הבאה.';return null}}},
-sub4(){const a=R(2000,9999),b=R(100,a-100);return{q:`${a} − ${b} = ?`,a:a-b,steps:['כותבים במאונך ומחסרים מימין','אם הספרה העליונה קטנה — פורטים מהעמודה השכנה',`בדיקה: התוצאה + ${b} = ${a}`],diag:u=>{let n=+u;if(n===a+b)return'חיברת במקום לחסר.';let w=0,x=a,y=b,m=1;while(x||y){w+=Math.abs(x%10-y%10)*m;x=~~(x/10);y=~~(y/10);m*=10}if(n===w&&w!==a-b)return'הפחתת קטן מגדול בכל עמודה במקום לפרוט.';return null}}},
-mul(){const a=R(2,10),b=R(2,10);return{q:`${a} × ${b} = ?`,a:a*b,steps:[`${a}×${b} = ${b} פעמים ${a}`,`ספרו בקפיצות של ${a}`],diag:u=>+u===a+b?'חיברת במקום להכפיל.':(near(u,a*b)==a||near(u,a*b)==b)?'טעית בקפיצה אחת — ספרו שוב.':null}},
-mul10(){const k=P([10,100,1000]),a=R(2,9)*P([1,1,10]);const div=Math.random()<.4&&a*k<=10000;return div?{q:`${a*k} : ${k} = ?`,a:a,steps:[`בחילוק ב-${k} מורידים ${String(k).length-1} אפסים`],diag:u=>+u===a*k*k?'הכפלת במקום לחלק.':null}:{q:`${a} × ${k} = ?`,a:a*k,steps:[`בכפל ב-${k} מוסיפים ${String(k).length-1} אפסים מימין`],diag:u=>+u===a+k?'חיברת במקום להכפיל.':null}},
-divr(){const b=R(2,9),q=R(2,9),r=R(1,b-1),n=b*q+r;return{q:`${n} : ${b} = ? (שארית ?) — הקלידו את השארית`,a:r,steps:[`מהי הכפולה הגדולה ביותר של ${b} שאינה עולה על ${n}? ${b*q}`,`${n} − ${b*q} = ${r}`],diag:u=>+u===q?'זו המנה. ביקשנו את השארית.':+u>=b?`השארית חייבת להיות קטנה מ-${b}.`:null}},
-order(){const a=R(2,9),b=R(2,9),c=R(2,9),t=P([0,1,2]);if(t==0)return{q:`${a} + ${b} × ${c} = ?`,a:a+b*c,steps:['כפל וחילוק לפני חיבור וחיסור',`${b}×${c}=${b*c}, ואז + ${a}`],diag:u=>+u===(a+b)*c?'חישבת משמאל לימין. כפל קודם לחיבור!':null};if(t==1)return{q:`(${a} + ${b}) × ${c} = ?`,a:(a+b)*c,steps:['קודם מה שבסוגריים',`${a+b}×${c}`],diag:u=>+u===a+b*c?'שכחת שהסוגריים מחושבים ראשונים.':null};return{q:`${a*c+b} − ${b} × ${0+1} + ${c} = ?`,a:a*c+b-b+c,steps:['קודם הכפל',`ואז משמאל לימין`],diag:()=>null}},
-round(){const n=R(1001,9998),k=P([[10,'עשרות'],[100,'מאות'],[1000,'אלפים']]);const v=Math.round(n/k[0])*k[0];return{q:`עגלו את ${n} ל${k[1]} שלמים`,a:v,steps:[`מסתכלים על הספרה שמימין לספרת ה${k[1]}`,'5 ומעלה — מעגלים למעלה; פחות מ-5 — למטה'],diag:u=>near(u,v)===k[0]?'עיגלת לכיוון הלא נכון. בדקו את הספרה שמימין.':null}},
-gem(){const L={א:1,ב:2,ג:3,ד:4,ה:5,ו:6,ז:7,ח:8,ט:9,י:10,כ:20,ל:30,מ:40,נ:50,ס:60,ע:70,פ:80,צ:90,ק:100,ר:200,ש:300,ת:400};const w=P(['אב','גדי','שלום','בית','דג','ספר','חלב','כדור','ילד','תמר']);const f={ם:'מ',ן:'נ',ץ:'צ',ף:'פ',ך:'כ'};const v=[...w].reduce((s,c)=>s+L[f[c]||c],0);return{q:`מה הערך הגימטרי של המילה "${w}"?`,a:v,steps:['א–ט: 1–9, י–צ: 10–90, ק–ת: 100–400',[...w].map(c=>`${c}=${L[f[c]||c]}`).join(' + ')],diag:()=>'בדקו כל אות בטבלה: י=10, כ=20, ל=30, מ=40, נ=50, ק=100, ר=200, ש=300, ת=400.'}},
-area3(){const w=R(2,9),h=R(2,9),t=Math.random()<.5;return t?{q:`מלבן משורטט על רשת: ${w} משבצות לאורך ו-${h} לרוחב. כמה משבצות יחידה בשטחו?`,a:w*h,steps:['שטח = מספר משבצות היחידה שמכסות את הצורה',`${h} שורות של ${w}: ${w}×${h}`],diag:u=>+u===2*(w+h)?'חישבת היקף (מסביב), לא שטח (בפנים).':+u===w+h?'צריך להכפיל, לא לחבר.':null}:{q:`מה ההיקף של מלבן שאורכו ${w} ס"מ ורוחבו ${h} ס"מ?`,a:2*(w+h),steps:['היקף = סכום כל הצלעות',`${w}+${h}+${w}+${h}`],diag:u=>+u===w*h?'חישבת שטח, לא היקף.':+u===w+h?'חיברת רק שתי צלעות — למלבן ארבע.':null}},
-time3(){const h=R(7,15),m=P([0,15,30,45]),dh=R(0,3),dm=P([15,30,45,20,10]);let e=h*60+m+dh*60+dm;const f=x=>`${Math.floor(x/60)}:${String(x%60).padStart(2,'0')}`;return{q:`השיעור התחיל ב-${f(h*60+m)} ונמשך ${dh?dh+' שעות ו-':''}${dm} דקות. באיזו שעה הסתיים? (כתבו כמו 10:30)`,a:f(e),steps:['מוסיפים קודם את השעות השלמות','ואז את הדקות; 60 דקות = שעה'],diag:u=>/:\d\d$/.test(u)&&+u.split(':')[1]>=60?'יש יותר מ-60 דקות — המירו לשעה.':'זכרו: שעה = 60 דקות, לא 100.'}},
-angle3(){const t=P([['ישרה',90],['חדה',R(20,80)],['קהה',R(100,170)],['שטוחה',180]]);return{q:`זווית בת ${t[1]}° היא זווית…`,a:t[0],choices:['חדה','ישרה','קהה','שטוחה'],steps:['ישרה = 90° (כמו פינת דף)','חדה קטנה מישרה, קהה גדולה מישרה','שטוחה = קו ישר'],diag:()=>'השוו לפינת דף: קטנה ממנה → חדה; גדולה ממנה → קהה.'}},
-data3(){const k=['שני','שלישי','רביעי','חמישי'],v=k.map(()=>R(3,20));const a=Math.max(...v)-Math.min(...v);return{q:`מספר הספרים שהושאלו: ${k.map((d,i)=>`${d}: ${v[i]}`).join(', ')}. בכמה גדול היום עם הכי הרבה מהיום עם הכי מעט?`,a,steps:[`הכי הרבה: ${Math.max(...v)}`,`הכי מעט: ${Math.min(...v)}`,'מחסרים'],diag:u=>+u===Math.max(...v)?'זה רק הערך הגדול — צריך את ההפרש.':null}},
-word3(){const a=R(120,600),b=R(50,300),g=R(1,a),t=P(['מדבקות','גולות','קלפים']);return{q:`לדנה היו ${a} ${t}. היא קיבלה עוד ${b}, ואז נתנה ${g} לחברה. כמה נשארו לה?`,a:a+b-g,steps:['שאלה דו־שלבית: קודם '+a+'+'+b,'אחר כך מחסירים '+g],diag:u=>+u===a+b+g?'"נתנה" זה חיסור.':+u===a-b-g?'"קיבלה" זה חיבור.':null}},
-// ===== כיתה ח' — פריסה תשפ"ז (prisa_8.pdf) =====
-ratio(){const s=P([1000,5000,10000,50000,100000]),c=R(2,15),m=c*s/100;return{q:`במפה בקנה מידה 1:${s.toLocaleString('en-US')} המרחק בין שתי נקודות הוא ${c} ס"מ. מה המרחק במציאות במטרים?`,a:m,steps:[`כל 1 ס"מ במפה = ${s} ס"מ במציאות`,`${c}×${s} = ${c*s} ס"מ`,'מחלקים ב-100 למטרים'],diag:u=>+u===c*s?'זה בסנטימטרים — המירו למטרים (÷100).':null}},
-pct(){const t=R(0,1),p=P([10,20,25,50,15,30,75]),n=R(2,20)*20;if(t)return{q:`כמה זה ${p}% מ-${n}?`,a:p*n/100,steps:[`${p}% = ${p}/100`,`${n}×${p}/100`],diag:u=>+u===p*n?'שכחת לחלק ב-100.':null};const up=Math.random()<.5;return{q:`מחיר של ${n}₪ ${up?'עלה':'ירד'} ב-${p}%. מה המחיר החדש?`,a:n*(1+(up?p:-p)/100),steps:[`השינוי: ${p*n/100}₪`,up?'מוסיפים למחיר':'מחסירים מהמחיר'],diag:u=>+u===p*n/100?'זה רק גודל השינוי — צריך את המחיר החדש.':null}},
-pyth(){const t=P([[3,4,5],[6,8,10],[5,12,13],[8,15,17],[9,12,15]]),h=Math.random()<.5;return h?{q:`במשולש ישר־זווית הניצבים ${t[0]} ו-${t[1]}. מה אורך היתר?`,a:t[2],steps:['a²+b²=c²',`${t[0]**2}+${t[1]**2}=${t[2]**2}`,'שורש'],diag:u=>+u===t[0]+t[1]?'מחברים את הריבועים ואז שורש.':+u===t[2]**2?'שכחת שורש.':null}:{q:`במשולש ישר־זווית היתר ${t[2]} וניצב אחד ${t[0]}. מה אורך הניצב השני?`,a:t[1],steps:['b² = c² − a²',`${t[2]**2}−${t[0]**2}=${t[1]**2}`],diag:u=>near(u,Math.sqrt(t[0]**2+t[2]**2))<.1?'כשמחפשים ניצב — מחסרים מריבוע היתר.':null}},
-circle(){const r=R(2,12),t=R(0,1);return t?{q:`מה שטח עיגול שרדיוסו ${r} ס"מ? (π=3.14, עד 2 ספרות)`,a:+(3.14*r*r).toFixed(2),tol:.05,steps:['S = π·r²',`3.14×${r*r}`],diag:u=>near(u,6.28*r)<.1?'זה ההיקף (2πr), לא השטח.':null}:{q:`מה היקף מעגל שרדיוסו ${r} ס"מ? (π=3.14)`,a:+(6.28*r).toFixed(2),tol:.05,steps:['P = 2πr',`2×3.14×${r}`],diag:u=>near(u,3.14*r)<.1?'שכחת להכפיל ב-2 (או השתמשו בקוטר).':null}},
-cyl(){const r=R(1,6),h=R(2,10),t=R(0,1);const V=3.14*r*r*h;return t?{q:`מה נפח גליל שרדיוס בסיסו ${r} וגובהו ${h}? (π=3.14)`,a:+V.toFixed(2),tol:.05,steps:['V = שטח בסיס × גובה = πr²·h',`3.14×${r*r}×${h}`],diag:u=>near(u,V/3)<.1?'חילקת ב-3 — זו נוסחת החרוט.':null}:{q:`מה נפח חרוט שרדיוס בסיסו ${r} וגובהו ${h}? (π=3.14)`,a:+(V/3).toFixed(2),tol:.05,steps:['V = πr²h / 3',`3.14×${r*r}×${h}÷3`],diag:u=>near(u,V)<.1?'שכחת לחלק ב-3 (חרוט = שליש גליל).':null}},
-par(){const a=R(35,145),t=P(['מתאימות','מתחלפות','חד־צדדיות']);const v=t=='חד־צדדיות'?180-a:a;return{q:`שני ישרים מקבילים נחתכים בחותך. זווית אחת היא ${a}°. מה גודל הזווית ה${t} לה?`,a:v,steps:[t=='חד־צדדיות'?'זוויות חד־צדדיות בין מקבילים משלימות ל-180°':`זוויות ${t} בין מקבילים שוות`],diag:u=>+u===180-a&&v===a?'זוויות מתאימות/מתחלפות שוות — לא משלימות.':+u===a&&v!==a?'חד־צדדיות משלימות ל-180°.':null}},
-ext(){const a=R(30,80),b=R(30,80);return{q:`במשולש שתי זוויות פנימיות הן ${a}° ו-${b}°. מה גודל הזווית החיצונית הצמודה לזווית השלישית?`,a:a+b,steps:['זווית חיצונית = סכום שתי הפנימיות שאינן צמודות לה',`${a}+${b}`],diag:u=>+u===180-a-b?'זו הזווית הפנימית השלישית — החיצונית משלימה אותה ל-180°.':null}},
-iso(){const t=R(20,140);return{q:`במשולש שווה־שוקיים זווית הראש ${t}°. מה גודל כל זווית בסיס?`,a:(180-t)/2,steps:['זוויות הבסיס שוות','(180 − זווית הראש) ÷ 2'],diag:u=>+u===180-t?'שכחת לחלק ב-2 — יש שתי זוויות בסיס.':null}},
-sim8(){const k=P([2,3,1.5,0.5]),a=R(2,8)*2;return{q:`שני משולשים דומים ביחס דמיון ${k} (הגדול : הקטן = ${k}). צלע במשולש הקטן ${a}. מה הצלע המתאימה בגדול?`,a:a*k,steps:['במשולשים דומים כל הצלעות המתאימות באותו יחס',`${a}×${k}`],diag:u=>near(u,a/k)<.01?'חילקת במקום להכפיל — הגדול : הקטן.':near(u,a+k)<.01?'יחס דמיון — מכפילים, לא מחברים.':null}},
-freq(){const n=P([20,25,40,50]),f=R(1,n/2);return{q:`בסקר השתתפו ${n} תלמידים, ${f} מהם בחרו כדורגל. מה השכיחות היחסית? (שבר עשרוני)`,a:+(f/n).toFixed(2),tol:.01,steps:['שכיחות יחסית = שכיחות ÷ סך הנתונים',`${f}/${n}`],diag:u=>+u===f?'זו השכיחות — צריך לחלק בסך הנתונים.':null}},
-stat8(){const a=Array.from({length:5},()=>R(1,20)),t=P(['ממוצע','חציון','טווח']);const s=[...a].sort((x,y)=>x-y);const v=t=='ממוצע'?a.reduce((x,y)=>x+y)/5:t=='חציון'?s[2]:s[4]-s[0];return{q:`נתונים: ${a.join(', ')}. מה ה${t}?`,a:+v.toFixed(1),tol:.05,steps:t=='ממוצע'?['סכום ÷ 5']:t=='חציון'?['מסדרים: '+s.join(', '),'האמצעי']:['גדול פחות קטן'],diag:u=>t=='חציון'&&+u===a[2]&&a[2]!==s[2]?'צריך קודם לסדר את הנתונים.':null}},
-prob8(){const r=R(2,8),b=R(2,8);return{q:`בשקית ${r} כדורים אדומים ו-${b} כחולים. מה ההסתברות להוציא אדום? (2 ספרות)`,a:+(r/(r+b)).toFixed(2),tol:.01,steps:['רצויים ÷ כל האפשרויות',`${r}/${r+b}`],diag:u=>near(u,r/b)<.01?'המכנה הוא סך כל הכדורים.':null}},
-slope(){const x1=R(-5,5),y1=R(-5,5),m=P([-3,-2,-1,1,2,3]),dx=R(1,4);return{q:`מה שיפוע הישר העובר דרך (${x1},${y1}) ו-(${x1+dx},${y1+m*dx})?`,a:m,steps:['m = (y₂−y₁)/(x₂−x₁)',`${m*dx}/${dx}`],diag:u=>near(u,1/m)<.01?'הפכת — הפרש y חלקי הפרש x.':+u===-m?'חסרו באותו סדר במונה ובמכנה.':null}},
-linf(){const m=P([-3,-2,2,3,4]),b=R(-6,6),x=R(-4,5);return{q:`y = ${m}x ${b<0?'−':'+'} ${Math.abs(b)}. מה ערך y כאשר x = ${x}?`,a:m*x+b,steps:['מציבים את x',`${m}·${x} ${b<0?'−':'+'} ${Math.abs(b)}`],diag:u=>+u===m*x-b||+u===-(m*x)+b?'טעות בסימן בהצבה.':null}},
-lin(){const x=R(-9,9),a=P([2,3,4,5,-2,-3]),b=R(-15,15),c=a*x+b;return{q:`פתרו: ${a}x ${b<0?'−':'+'} ${Math.abs(b)} = ${c}`,a:x,steps:[`${a}x = ${c-b}`,`x = ${(c-b)/a}`],diag:u=>+u===(c+b)/a?'מעבירים אגף — הסימן מתהפך.':+u===(c-b)*a?'מחלקים במקדם, לא מכפילים.':null}},
-sys(){const x=R(-5,6),y=R(-5,6);return{q:`פתרו: x + y = ${x+y}, x − y = ${x-y}. מהו x?`,a:x,steps:['מחברים את המשוואות: 2x = '+(2*x),'x = '+x],diag:u=>+u===y?'זה y.':+u===2*x?'שכחת לחלק ב-2.':null}},
-ineq(){const a=P([2,3,4,5,-2,-3]),x=R(-6,6),b=R(-9,9);const s=a>0?'>':'<';return{q:`פתרו: ${a}x ${b<0?'−':'+'} ${Math.abs(b)} > ${a*x+b}. בחרו:`,a:`x ${s} ${x}`,choices:[`x > ${x}`,`x < ${x}`,`x > ${-x}`,`x < ${-x}`].filter((v,i,a)=>a.indexOf(v)===i),steps:['פותרים כמו משוואה',a<0?'מחלקים במספר שלילי → הסימן מתהפך!':'מחלקים במספר חיובי — הסימן נשאר'],diag:u=>u===`x ${s=='>'?'<':'>'} ${x}`?'בדקו מתי מתהפך סימן אי־השוויון (רק בחילוק/כפל בשלילי).':null}},
-// ===== כיתה י"א — 35371 (11th-social / 11th-financial / yud_alef_02 + מיקוד תשפ"ז) =====
-growth(){const A=R(1,10)*100,p=P([5,10,20]),t=R(2,3),d=Math.random()<.5;const v=A*(1+(d?-p:p)/100)**t;return{q:`כמות של ${A} ${d?'דועכת':'גדלה'} ב-${p}% בכל שנה. כמה תהיה אחרי ${t} שנים? (עיגול לשלם)`,a:Math.round(v),tol:1,steps:[`מקדם ${d?'דעיכה':'גדילה'}: q = ${1+(d?-p:p)/100}`,`A·q^t = ${A}·${1+(d?-p:p)/100}^${t}`],diag:u=>near(u,A*(1+(d?-p:p)*t/100))<1.5?'חישבת שינוי קבוי (קווי). בגדילה/דעיכה מעריכית כופלים ב-q בכל שנה.':null}},
-formula(){const a=R(2,9),b=R(1,20),y=a*R(1,10)+b;return{q:`בנוסחה y = ${a}x + ${b}. מצאו את x כאשר y = ${y} (שינוי נושא נוסחה)`,a:(y-b)/a,steps:[`x = (y − ${b}) / ${a}`,`(${y}−${b})/${a}`],diag:u=>+u===(y+b)/a?'מעבירים אגף — הסימן מתהפך.':null}},
-med11(){const n=P([5,7]),a=Array.from({length:n},()=>R(40,100)),s=[...a].sort((x,y)=>x-y);return{q:`ציונים: ${a.join(', ')}. מה החציון?`,a:s[(n-1)/2],steps:['מסדרים: '+s.join(', '),'הערך האמצעי'],diag:u=>+u===a[(n-1)/2]?'צריך קודם לסדר בסדר עולה.':null}},
-sd(){const m=R(5,15),d=R(2,4),a=[m-d,m-d,m+d,m+d];return{q:`נתונים: ${a.join(', ')}. מהי סטיית התקן?`,a:d,steps:[`ממוצע: ${m}`,`כל סטייה מהממוצע: ±${d}, בריבוע ${d*d}`,`שונות = ${d*d}, סטיית תקן = √${d*d}`],diag:u=>+u===d*d?'זו השונות — סטיית התקן היא השורש שלה.':+u===m?'זה הממוצע.':null}},
-probi(){const p=P([.5,.4,.3,.2,.6]),q=P([.5,.4,.3,.2,.6,.1]);return{q:`A ו-B מאורעות בלתי תלויים: P(A)=${p}, P(B)=${q}. מהי P(A וגם B)?`,a:+(p*q).toFixed(2),tol:.005,steps:['במאורעות בלתי תלויים: P(A∩B) = P(A)·P(B)',`${p}×${q}`],diag:u=>near(u,p+q)<.005?'חיברת — "וגם" במאורעות בלתי תלויים זה כפל.':null}},
-probd(){const r=R(3,7),b=R(3,7),n=r+b;const v=r*(r-1)/(n*(n-1));return{q:`בשקית ${r} אדומים ו-${b} כחולים. מוציאים 2 כדורים בלי החזרה. מה ההסתברות ששניהם אדומים? (3 ספרות)`,a:+v.toFixed(3),tol:.002,steps:['מאורעות תלויים — בהוצאה השנייה נשאר כדור אחד פחות',`${r}/${n} × ${r-1}/${n-1}`],diag:u=>near(u,(r/n)**2)<.002?'חישבת כאילו עם החזרה. בלי החזרה המונה והמכנה קטנים ב-1.':null}},
-scale11(){const s=P([50,100,200,500]),c=R(2,12);return{q:`בשרטוט בקנה מידה 1:${s} אורך חדר ${c} ס"מ. מה אורכו במציאות במטרים?`,a:c*s/100,steps:[`${c}×${s} = ${c*s} ס"מ`,'÷100 → מטרים'],diag:u=>+u===c*s?'המירו ס"מ למטרים.':null}},
-sim11(){const a=R(2,6),k=P([2,3,4]),h=R(2,9);return{q:`מקל באורך ${a} מ' מטיל צל של ${a*k} מ'. באותו רגע עץ מטיל צל של ${h*k} מ'. מה גובה העץ? (דמיון משולשים)`,a:h*1,steps:['המשולשים דומים: גובה/צל שווה',`${a}/${a*k} = x/${h*k}`],diag:u=>near(u,h*k*k)<.01?'הפכתם את היחס.':null}},
-trig(){const ang=P([30,40,50,60,35]),hyp=R(5,20),t=P(['sin','cos']);const v=hyp*(t=='sin'?Math.sin:Math.cos)(ang*Math.PI/180);return{q:`במשולש ישר־זווית היתר ${hyp} והזווית החדה α=${ang}°. מה אורך הניצב ה${t=='sin'?'מול':'ליד'} α? (2 ספרות)`,a:+v.toFixed(2),tol:.02,steps:[t=='sin'?'sin α = מול / יתר':'cos α = ליד / יתר',`${t=='sin'?'מול':'ליד'} = ${hyp}·${t}(${ang}°)`],diag:u=>near(u,hyp*(t=='sin'?Math.cos:Math.sin)(ang*Math.PI/180))<.02?'בלבלתם בין sin (מול) ל-cos (ליד).':near(u,hyp/(t=='sin'?Math.sin:Math.cos)(ang*Math.PI/180))<.05?'הכפילו ביתר — לא לחלק.':null}},
-};
-// English item banks — מילים מתוך רשימות Lexical Band של משרד החינוך (תרגום עברי: שלנו)
-const V3=[['dog','כלב'],['cat','חתול'],['red','אדום'],['sun','שמש'],['big','גדול'],['three','שלוש'],['mom','אמא'],['dad','אבא'],['bag','תיק'],['box','קופסה'],['boy','ילד'],['bus','אוטובוס'],['bed','מיטה'],['friend','חבר'],['pen','עט'],['pencil','עיפרון'],['hand','יד'],['hot','חם'],['hat','כובע'],['egg','ביצה'],['milk','חלב'],['run','לרוץ'],['sit','לשבת']];
-const V8=[['decide','להחליט'],['explain','להסביר'],['healthy','בריא'],['journey','מסע'],['knowledge','ידע'],['neighbor','שכן'],['advice','עצה'],['address','כתובת'],['because','כי'],['important','חשוב'],['prefer','להעדיף'],['vacation','חופשה'],['agree','להסכים'],['reason','סיבה']];
-const V11=[['however','עם זאת'],['purpose','מטרה'],['prefer','להעדיף'],['agree','להסכים'],['reason','סיבה'],['important','חשוב'],['change','שינוי / לשנות'],['project','פרויקט'],['study','ללמוד'],['test','מבחן'],['grade','ציון / כיתה'],['language','שפה'],['vacation','חופשה'],['advice','עצה']];
-const vocab=(L)=>()=>{const w=P(L),c=sh([w[1],...sh(L.filter(x=>x!==w)).slice(0,3).map(x=>x[1])]);return{lang:'en',say:w[0],q:`מה פירוש המילה: <span class=ltr><b>${w[0]}</b></span>?`,a:w[1],choices:c,steps:['נסו להיזכר במשפט שבו שמעתם את המילה','לחצו 🔊 כדי לשמוע'],diag:u=>{const x=L.find(z=>z[1]===u);return x?`בחרת "${u}" — זו המשמעות של ${x[0]}.`:null}}};
-const ABC=()=>{const l='abcdefghijklmnopqrstuvwxyz',i=R(0,24);return{lang:'en',say:l[i],q:`איזו אות באה אחרי <b class=ltr>${l[i].toUpperCase()}</b>?`,a:l[i+1].toUpperCase(),choices:sh([l[i+1],l[(i+5)%26],l[(i+2)%26],l[(i+9)%26]].map(x=>x.toUpperCase())).filter((v,k,s)=>s.indexOf(v)==k),steps:['שירו את שיר ה-ABC עד האות'],diag:()=>'שירו את שיר ה-ABC מההתחלה ובדקו.'}};
-const gram=(B)=>()=>{const [s,a,o,t]=P(B);return{lang:'en',say:s.replace('___',a),q:`<div class=ltr>${s}</div>`,a,choices:sh([a,...o]),steps:[t],diag:()=>'טיפ: '+t}};
-// מבנים מתוך GrammarBandII.pdf
-const G8=[['She ___ to school every day.','goes',['go','going','gone'],'Present Simple: he/she/it מקבלים s.'],['Yesterday we ___ a movie.','watched',['watch','watches','watching'],'Past Simple: yesterday → ed.'],['This book is ___ than that one.','more interesting',['interestinger','most interesting','interesting'],'Comparative: מילה ארוכה → more ... than.'],['You ___ wear a helmet. It\'s the law.','must',['can','would like','used to'],'Modality: must = חובה.'],['If it rains, we ___ at home.','will stay',['stayed','stay','would stay'],'First conditional: If + present, will + verb.'],['The museum ___ built in 1950.','was',['is','were','has'],'Past simple passive: was/were + V3.'],['You look tired. You ___ go to bed.','should',['must not','used to','could'],'should + verb = עצה.']];
-const G11=G8.concat([['English ___ in many countries.','is spoken',['speaks','is speaking','spoke'],'Present simple passive: am/is/are + V3.'],['I ___ like to visit London.','would',['will','should','must'],'would like = הייתי רוצה.'],['When I was a child, I ___ play outside a lot.','used to',['use to','am used','was use'],'used to = הרגל בעבר.']]);
-const RD=[{t:'I have a cat. The cat is red. It is big. It sits on my bed.',qs:[['What color is the cat?','red',['black','blue','green']],['Where does the cat sit?','on my bed',['on the bus','in the box','in my bag']]],g:3},
-{t:'Dana and her neighbor went on a journey to the north. They decided to walk because it is healthy. Dana\'s dad gave them advice: take water and a hat.',qs:[['Why did they decide to walk?','because it is healthy',['because the bus was late','because it was cold','because it is fast']],['What advice did Dana\'s dad give?','take water and a hat',['take a bus','stay at home','buy food']]],g:8},
-{t:'SUMMER CAMP! Want a great vacation? Join our English camp for teens, July 1–20. Study, play and make new friends. Price: 900 NIS. Send an e-mail to camp@example.com to register.',qs:[['What type of text is this?','an advertisement',['a story','a poem','a book review']],['How can you register?','send an e-mail',['call the camp','come to the camp','write a letter']]],g:11},
-{t:'Many schools in Israel now start a project to help the environment. Pupils collect bottles and paper. However, some teachers say that pupils need more time to study for tests. Most pupils agree that the project is important.',qs:[['What do pupils collect?','bottles and paper',['books','food','clothes']],['What do some teachers say?','pupils need more time to study',['the project is too easy','pupils should collect more','tests are not important']]],g:11}];
-const read=g=>()=>{const r=P(RD.filter(x=>x.g===g)),[q,a,o]=P(r.qs);return{lang:'en',say:r.t+' '+q,q:`<div class=ltr><p>${r.t}</p><b>${q}</b></div>`,a,choices:sh([a,...o]),steps:['קראו את השאלה לפני הקטע','חפשו מילת מפתח מהשאלה'],diag:()=>'חזרו לקטע ומצאו את המשפט עם מילות המפתח.'}};
-// Module C — נושאי חיבור מתוך מיקוד אנגלית תשפ"ז (portal_talmidim/mikud/2027/english.pdf)
-const MC=['Many pupils prefer studying at home to studying at school. What do you prefer?','In your opinion, what project would be good to do at your school to help the environment?','Do you think it is a good idea for teenagers to have a job after school hours?','Do you think it is important to study English?','What do you think is the best way to spend a vacation?','At what age should children be allowed to have their own cellphone?','Do you think that all high school pupils should do volunteer work?'];
-const opin=()=>{const t=P(MC);const a='Give reasons';return{lang:'en',say:t,q:`<div class=ltr><b>Module C writing topic:</b><p>${t}</p></div>איזה חלק חייב להופיע בחיבור דעה?`,a:'דעה ברורה + נימוקים',choices:sh(['דעה ברורה + נימוקים','סיפור עם דמויות','מכתב לחבר','סיכום של ספר']),steps:['במיקוד תשפ"ז: Module C — חיבור דעה (opinion) בלבד; סיפור ומכתב לא נכללים','מבנה: פתיחה עם דעה → 2–3 נימוקים → סיכום'],diag:()=>'המיקוד קובע: stories, informal letter — לא נכללים. נדרש opinion עם נימוקים.'}};
-// Curriculum map
-const T=(id,name,gen,exp,slides)=>({id,name,gen,exp,slides});
-const C={
-'3':{name:"כיתה ג'",math:[
-T('place','מספרים עד 10,000 – ערך המקום','place','בכל מספר יש מקומות: אחדות, עשרות, מאות, אלפים. הספרה שווה לפי המקום שבו היא עומדת.',['ערך המקום','מימין: אחדות','אחר כך עשרות ומאות','ובמקום הרביעי – אלפים']),
-T('cmp','השוואת מספרים (< > =)','cmp','משווים קודם את הספרה במקום הגבוה ביותר.',null),
-T('skip','סדרות וספירה בדילוגים','skip','בסדרה חשבונית מוסיפים כל פעם את אותו מספר (20, 25, 50, 200, 500...).',null),
-T('add4','חיבור בתחום הרבבה','add4','מחברים במאונך לפי עמודות ומעבירים כשיוצא 10 או יותר.',['חיבור במאונך','אחדות מתחת לאחדות','מתחילים מימין','מעבירים לעמודה הבאה']),
-T('sub4','חיסור בתחום הרבבה','sub4','מחסרים לפי עמודות; כשהספרה למעלה קטנה – פורטים.',['חיסור עם פריטה','ספרה קטנה למעלה?','פורטים מהשכנה','ומחסרים']),
-T('mul','לוח הכפל עד 10×10','mul','כפל הוא חיבור חוזר. חוק החילוף: 3×4 = 4×3.',null),
-T('mul10','כפל וחילוק ב-10, 100, 1000','mul10','כפל ב-10 מוסיף אפס; חילוק ב-10 מוריד אפס.',null),
-T('divr','חילוק עם שארית','divr','השארית תמיד קטנה מהמחלק.',null),
-T('order','סדר פעולות החשבון וסוגריים','order','קודם סוגריים, אחר כך כפל וחילוק, ואז חיבור וחיסור.',null),
-T('round','עיגול מספרים','round','מסתכלים על הספרה שמימין: 5 ומעלה – למעלה.',null),
-T('gem','גימטרייה','gem','לכל אות ערך: א=1 ... ט=9, י=10 ... צ=90, ק=100 ... ת=400.',null),
-T('word3','בעיות דו־שלביות','word3','קוראים, מסמנים מספרים ומחליטים על הפעולה בכל שלב.',null),
-T('angle3','זוויות וצורות','angle3','זווית ישרה, חדה, קהה ושטוחה; מיון משולשים לפי זוויות.',null),
-T('area3','מדידת שטח (והיקף)','area3','שטח = מספר משבצות היחידה בפנים; היקף = אורך הקו מסביב.',null),
-T('time3','מדידת זמן','time3','שעה = 60 דקות. מחשבים משך זמן בשעות ובדקות.',null),
-T('data3','חקר נתונים','data3','קוראים טבלה ומשווים בין נתונים.',null)],
-eng:[T('abc','האלפבית','ABC','באנגלית 26 אותיות; כותבים משמאל לימין.',null),T('v3','אוצר מילים – Pre-Band I','v3','מילים מתוך רשימת Pre-Band I של משרד החינוך.',null),T('r3','קריאת משפטים קצרים','r3','קוראים משפט קצר ומחפשים מילה מוכרת.',null)]},
-'8':{name:"כיתה ח'",math:[
-T('ratio','יחס, פרופורציה וקנה מידה','ratio','קנה מידה 1:1000 – כל ס"מ בשרטוט הוא 1000 ס"מ במציאות.',null),
-T('pct','אחוזים ושינוי באחוזים','pct','אחוז = חלק מ-100. עלייה/ירידה: מחשבים את השינוי ומוסיפים/מחסירים.',null),
-T('par','זוויות בין ישרים מקבילים','par','מתאימות ומתחלפות – שוות; חד־צדדיות – משלימות ל-180°.',null),
-T('pyth','משפט פיתגורס','pyth','a²+b²=c², c היתר.',['פיתגורס','שני ניצבים ויתר','a² + b² = c²','מוציאים שורש']),
-T('circle','מעגל: היקף ושטח','circle','P=2πr, S=πr².',null),
-T('cyl','גליל וחרוט – נפח','cyl','גליל: πr²h. חרוט: שליש מזה.',null),
-T('ext','זווית חיצונית במשולש','ext','שווה לסכום שתי הפנימיות שאינן צמודות לה.',null),
-T('iso','משולש שווה־שוקיים','iso','זוויות הבסיס שוות.',null),
-T('sim8','דמיון משולשים','sim8','צלעות מתאימות באותו יחס.',null),
-T('freq','שכיחות ושכיחות יחסית','freq','שכיחות יחסית = שכיחות ÷ סך הנתונים.',null),
-T('stat8','מדדי מרכז וטווח','stat8','ממוצע, חציון, טווח.',null),
-T('prob8','הסתברות','prob8','רצויים ÷ כל האפשרויות.',null),
-T('linf','פונקציה קווית – ייצוגים','linf','y=mx+b; מציבים x ומקבלים y.',null),
-T('slope','שיפוע וקצב שינוי','slope','שיפוע = הפרש y ÷ הפרש x.',null),
-T('lin','משוואות ובעיות מילוליות','lin','משאירים את x לבד; מה שעושים באגף אחד עושים בשני.',['משוואה = מאזניים','מעבירים אגף והופכים סימן','מחלקים במקדם','בודקים בהצבה']),
-T('sys','מערכת משוואות','sys','מחברים/מחסרים משוואות כדי להעלים נעלם.',null),
-T('ineq','אי־שוויונות','ineq','כמו משוואה, אבל בחילוק בשלילי הסימן מתהפך.',null)],
-eng:[T('v8','אוצר מילים – Band I (מבוא ל-Band II)','v8','מילים מרשימת Band I של משרד החינוך.',null),T('g8','דקדוק – Grammar Band II','g8','Present/Past Simple, Comparatives, Modals, First conditional, Passive.',null),T('r8','הבנת הנקרא','r8','רעיון מרכזי ופרטים.',null)]},
-'11':{name:"כיתה י\"א – 3 יח\"ל (35371)",math:[
-T('growth','גדילה ודעיכה מעריכית (חברה ומדע / פיננסי)','growth','A·qᵗ: q=1+p/100 בגדילה, q=1−p/100 בדעיכה.',['גדילה ודעיכה','מוצאים את q','מעלים בחזקת מספר התקופות','מכפילים בכמות ההתחלתית']),
-T('formula','שינוי נושא נוסחה','formula','מבודדים את המשתנה המבוקש כמו בפתרון משוואה.',null),
-T('med11','מדדי מרכז – חציון','med11','מסדרים ובוחרים את האמצעי.',null),
-T('sd','סטיית תקן (פיננסי)','sd','מדד פיזור: שורש ממוצע ריבועי הסטיות מהממוצע. (רבעונים ועשירונים – לא בבחינה תשפ"ז)',null),
-T('probi','הסתברות – חיתוך מאורעות בלתי תלויים','probi','P(A∩B)=P(A)·P(B). (חיתוך של 3 מאורעות – לא בבחינה תשפ"ז)',null),
-T('probd','הסתברות – מאורעות תלויים','probd','בלי החזרה: ההסתברות משתנה בשלב השני.',null),
-T('scale11','קנה מידה (התמצאות במישור)','scale11','אורך במציאות = אורך בשרטוט × קנה המידה.',null),
-T('sim11','דמיון משולשים בהקשר אורייני','sim11','גובה/צל באותו רגע שווים בכל העצמים.',null),
-T('trig','טריגונומטריה במשולש ישר־זווית','trig','sin=מול/יתר, cos=ליד/יתר, tan=מול/ליד. (מצולעים משוכללים מעל 4 צלעות – לא בבחינה תשפ"ז)',['טריגונומטריה','sin = מול / יתר','cos = ליד / יתר','tan = מול / ליד'])],
-eng:[T('v11','אוצר מילים – Bands I–II','v11','לפי ה-3-point handbook: טקסטים עם אוצר מילים מ-Band I ו-II.',null),T('g11','דקדוק – Grammar Band II','g11','Passive, Modals, used to, Conditionals.',null),T('r11','Module A/C – הבנת הנקרא','r11','מיקוד תשפ"ז: article/report, advertisement, e-mail (A); article/report (C). ללא book/film review.',null),T('mc','Module C – חיבור דעה','opin','מיקוד תשפ"ז: opinion בלבד, על נושאים מהרשימה הרשמית.',null)]}};
-Object.assign(G,{ABC,v3:vocab(V3),v8:vocab(V8),v11:vocab(V11),g8:gram(G8),g11:gram(G11),r3:read(3),r8:read(8),r11:read(11),opin});
-// State
-let S=JSON.parse(localStorage.study||'{}');S.pts??=0;S.stars??=0;S.streak??=0;S.best??=0;S.p??={};S.badges??=[];S.days??=[];
-const save=()=>{localStorage.study=JSON.stringify(S);stats()};
-const stats=()=>document.getElementById('stats').textContent=`⭐${S.stars} 🏆${S.pts} 🔥${S.streak}`;
-function badge(n){if(!S.badges.includes(n)){S.badges.push(n);toast('🏅 תג חדש: '+n)}}
-const toast=m=>{const d=document.createElement('div');d.className='card';d.style.cssText='position:fixed;bottom:10px;left:10px;right:10px;background:#fef3c7;z-index:9';d.textContent=m;document.body.append(d);setTimeout(()=>d.remove(),2500);speak(m)};
-// Speech
-function speak(t,lang='he'){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g,' '));u.lang=lang=='en'?'en-US':'he-IL';u.rate=.95;speechSynthesis.speak(u)}catch(e){}}
-function listen(cb,lang='he'){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert('זיהוי דיבור לא נתמך בדפדפן — הקלידו במקום.');const r=new SR();r.lang=lang=='en'?'en-US':'he-IL';r.onresult=e=>cb(e.results[0][0].transcript);r.start()}
-// Views
-const $=document.getElementById('app'),go=(v,...a)=>{V[v](...a);scrollTo(0,0)};
+// ===== מצב =====
+const DEF={xp:0,coins:0,streak:0,lastDay:'',bestStreak:0,p:{},badges:[],owned:['t0','a0'],theme:'t0',avatar:'a0',answered:0,bagrutParts:0};
+let S=Object.assign({},DEF,JSON.parse(localStorage.study3||'{}'));
+const save=()=>{localStorage.study3=JSON.stringify(S);bar()};
+const $=id=>document.getElementById(id), app=$('app');
+const lvl=xp=>Math.floor(Math.sqrt(xp/40))+1, lvlXp=l=>40*(l-1)**2;
+const mastery=key=>{const p=S.p[key];if(!p||!p.h.length)return 0;return Math.round(100*p.h.reduce((a,b)=>a+b,0)/Math.max(p.h.length,6))};
+const mLabel=m=>m==0?['טרם התחיל','m0']:m<40?['בהתנסות','m1']:m<70?['מכיר','m2']:m<90?['שולט','m3']:['מומחה ⭐','m4'];
+const findT=(k,s,id)=>C[k][s].find(t=>t.id===id);
+const THEMES=[['t0','סגול',0,'#6d28d9','#a78bfa'],['t1','אוקיינוס',80,'#0369a1','#38bdf8'],['t2','שקיעה',120,'#c2410c','#fb923c'],['t3','יער',120,'#15803d','#4ade80'],['t4','לילה',200,'#1e293b','#818cf8'],['t5','ורוד',160,'#be185d','#f472b6']];
+const AVAS=[['a0','🦉',0],['a1','🦊',50],['a2','🐼',80],['a3','🦁',120],['a4','🐙',150],['a5','🚀',200],['a6','🦄',260],['a7','🐉',350]];
+const BADGES={first:['🌟','תשובה נכונה ראשונה'],d3:['🔥','3 ימי תרגול ברצף'],d7:['☄️','שבוע ברצף'],xp500:['💎','500 XP'],master:['🏆','מומחה בנושא'],bag10:['🎓','10 סעיפי בגרות נכונים'],perfect:['💯','סבב מושלם'],shop:['🛍️','קנייה ראשונה בחנות'],persist:['💪','לא ויתר — הצליח בניסיון שלישי'],q100:['🧠','100 תשובות נכונות']};
+function badge(id){if(S.badges.includes(id))return;S.badges.push(id);toast(`${BADGES[id][0]} תג חדש: ${BADGES[id][1]}`,'gold')}
+function toast(m,c=''){const d=document.createElement('div');d.className='toast '+c;d.textContent=m;document.body.append(d);setTimeout(()=>d.remove(),2600)}
+function theme(){const t=THEMES.find(x=>x[0]==S.theme)||THEMES[0];document.documentElement.style.setProperty('--p',t[3]);document.documentElement.style.setProperty('--p2',t[4]);document.querySelector('meta[name=theme-color]')?.setAttribute('content',t[3])}
+function touchDay(){const d=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString();if(S.lastDay==d)return;S.streak=S.lastDay==y?S.streak+1:1;S.lastDay=d;S.bestStreak=Math.max(S.bestStreak,S.streak);if(S.streak>=3)badge('d3');if(S.streak>=7)badge('d7')}
+function reward(xp,coins){const l0=lvl(S.xp);S.xp+=xp;S.coins+=coins;if(S.xp>=500)badge('xp500');if(lvl(S.xp)>l0)toast(`🎉 עליתם לרמה ${lvl(S.xp)}!`,'gold')}
+function bar(){const l=lvl(S.xp),a=lvlXp(l),b=lvlXp(l+1),av=AVAS.find(x=>x[0]==S.avatar)[1];$('top').innerHTML=`<button class=ava onclick="go('progress')">${av}</button><div class=lv><b>רמה ${l}</b><div class=xpbar><i style="width:${100*(S.xp-a)/(b-a)}%"></i></div><small>${S.xp-a}/${b-a} XP</small></div><span class=chip title="רצף ימים">🔥 ${S.streak}</span><span class=chip title="מטבעות">🪙 ${S.coins}</span>`}
+
+// ===== הקראה: נרמול לעברית מדוברת =====
+const UNITS=[[/סמ"ר/g,'סנטימטר רבוע'],[/מ"ר/g,'מטר רבוע'],[/ס"מ/g,'סנטימטר'],[/ק"מ/g,'קילומטר'],[/יח"ל/g,'יחידות לימוד'],[/תשפ"ז/g,'תשפ"ז'],[/(\d)\s*מ'/g,'$1 מטר'],[/₪/g,' שקלים']];
+function sayHe(t){t=String(t).replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ');for(const[r,s]of UNITS)t=t.replace(r,s);
+return t.replace(/(\d),(?=\d{3}\b)/g,'$1')
+.replace(/(\d)([xyt])(?![a-z])/g,'$1 $2').replace(/(sin|cos|tan)(?=\d)/g,'$1 ').replace(/\//g,' חלקי ').replace(/\b(sin|cos|tan)⁻¹/g,(m,f)=>'ה'+{sin:'סינוס',cos:'קוסינוס',tan:'טנגנס'}[f]+' ההפוך של').replace(/\bsin\b/g,'סינוס').replace(/\bcos\b/g,'קוסינוס').replace(/\btan\b/g,'טנגנס')
+.replace(/²/g,' בריבוע').replace(/³/g,' בשלישית').replace(/\^(\w+)/g,' בחזקת $1').replace(/ᵗ/g,' בחזקת טי').replace(/ⁿ/g,' בחזקת אן')
+.replace(/√/g,' שורש ').replace(/π/g,' פאי ').replace(/[×·]/g,' כפול ').replace(/÷/g,' חלקי ').replace(/(\d)\s*:\s*(\d)/g,'$1 חלקי $2')
+.replace(/(^|[\s(=])[−-](?=\d|x)/g,'$1מינוס ').replace(/\s[−-]\s/g,' פחות ').replace(/(\w)\s*[−]\s*(\w)/g,'$1 פחות $2').replace(/\+/g,' ועוד ')
+.replace(/≤/g,' קטן או שווה ל ').replace(/≥/g,' גדול או שווה ל ').replace(/</g,' קטן מ ').replace(/>/g,' גדול מ ').replace(/=/g,' שווה ').replace(/≈/g,' בערך ')
+.replace(/(\d)\.(\d)/g,'$1 נקודה $2').replace(/%/g,' אחוז').replace(/°/g,' מעלות').replace(/∥/g,' מקביל ל').replace(/Σ/g,'סכום ').replace(/→/g,', ולכן, ')
+.replace(/\bP\(/g,'ההסתברות של (').replace(/\bx\b/g,'איקס').replace(/\by\b/g,'וואי').replace(/_{2,}/g,' מה? ').replace(/[()]/g,', ').replace(/[🎯⭐💡✅❌🔊]/gu,'').replace(/\s+/g,' ').trim()}
+let VOICE={};function pickVoices(){const vs=speechSynthesis.getVoices(),sc=v=>(/Carmit/i.test(v.name)?5:0)+(/Natural|Online|Neural|Hila|Avri/i.test(v.name)?4:0)+(/Google/i.test(v.name)?3:0)+(/Enhanced|Premium/i.test(v.name)?2:0)+(v.localService?0:1);
+for(const L of['he','en']){const c=vs.filter(v=>v.lang.toLowerCase().startsWith(L)).sort((a,b)=>sc(b)-sc(a));VOICE[L]=c[0]}}
+if('speechSynthesis'in window){pickVoices();speechSynthesis.onvoiceschanged=pickVoices}
+let NOW=null;
+function say(btn,text,lang='he'){if(!('speechSynthesis'in window))return toast('הדפדפן לא תומך בהקראה');const ss=speechSynthesis;
+if(NOW===btn){if(ss.paused){ss.resume();btn.classList.add('on');btn.textContent='⏸'}else{ss.pause();btn.classList.remove('on');btn.textContent='▶'}return}
+ss.cancel();if(NOW){NOW.classList.remove('on');NOW.textContent='🔊'}NOW=btn;btn.classList.add('on');btn.textContent='⏸';
+const u=new SpeechSynthesisUtterance(lang=='en'?String(text).replace(/<[^>]+>/g,' ').replace(/_{2,}/g,'blank'):sayHe(text));u.lang=lang=='en'?'en-US':'he-IL';if(VOICE[lang])u.voice=VOICE[lang];u.rate=lang=='en'?.9:.92;
+u.onend=u.onerror=()=>{if(NOW===btn){btn.classList.remove('on');btn.textContent='🔊';NOW=null}};ss.speak(u)}
+const SAYS=[];const sb=(text,lang='he')=>{SAYS.push([text,lang]);return`<button class=say aria-label="השמעה" onclick="say(this,SAYS[${SAYS.length-1}][0],SAYS[${SAYS.length-1}][1])">🔊</button>`};
+function listen(cb,lang='he'){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('זיהוי דיבור לא נתמך — הקלידו');const r=new SR();r.lang=lang=='en'?'en-US':'he-IL';r.onresult=e=>cb(e.results[0][0].transcript);r.start();toast('🎤 מקשיב...')}
+
+// ===== ניווט =====
+function go(v,...a){if('speechSynthesis'in window)speechSynthesis.cancel();NOW=null;SAYS.length=0;V[v](...a);scrollTo(0,0);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('act',b.dataset.v==v||(v!='progress'&&v!='shop'&&b.dataset.v=='home')))}
+const back=(f,l='חזרה')=>`<button class=back onclick="${f}">→ ${l}</button>`;
+const ring=m=>`<div class=ring style="--m:${m}"><span>${m}%</span></div>`;
+const gradeM=(k,s)=>{const ts=C[k][s];return Math.round(ts.reduce((a,t)=>a+mastery(k+t.id),0)/ts.length)};
+
 const V={
-home(){$.innerHTML=`<div class=card><h2>שלום! מה לומדים היום?</h2><div class=grid>${Object.entries(C).map(([k,g])=>`<button class=p onclick="go('grade','${k}')">${g.name}</button>`).join('')}</div></div>
-<div class=card><button onclick="go('dash')">📊 ההתקדמות שלי</button><button onclick="go('ask')">🎤 שאל את המורה</button></div>`},
-grade(k){const g=C[k];const L=(arr,s)=>arr.map(t=>{const p=S.p[k+t.id]||{c:0,n:0};return`<button onclick="go('topic','${k}','${s}','${t.id}')">${t.name}<div class=bar><i style="width:${Math.min(100,p.c*10)}%"></i></div></button>`}).join('');$.innerHTML=`<div class=card><h2>${g.name}</h2><h3>🔢 מתמטיקה</h3><div class=grid>${L(g.math,'math')}</div><h3>🔤 אנגלית</h3><div class=grid>${L(g.eng,'eng')}</div></div><button onclick="go('home')">→ חזרה</button>`},
-topic(k,s,id){const t=C[k][s].find(x=>x.id===id);$.innerHTML=`<div class=card><h2>${t.name}</h2><p>${t.exp}</p><button onclick="speak(C['${k}']['${s}'].find(x=>x.id=='${id}').exp)">🔊 הקראה</button>${t.slides?`<button onclick="go('video','${k}','${s}','${id}')">🎬 סרטון הסבר</button>`:''}<button class=p onclick="go('practice','${k}','${s}','${id}')">✏️ לתרגול</button></div><button onclick="go('grade','${k}')">→ חזרה</button>`},
-video(k,s,id){const t=C[k][s].find(x=>x.id===id);let i=0;const show=()=>{if(i>=t.slides.length){$.innerHTML=`<div class="card slide">🎉 סיימנו!</div><button class=p onclick="go('practice','${k}','${s}','${id}')">לתרגול</button>`;return}$.innerHTML=`<div class="card slide">${t.slides[i]}</div><small>${i+1}/${t.slides.length}</small> <button onclick="speechSynthesis.cancel();go('topic','${k}','${s}','${id}')">עצור</button>`;const u=new SpeechSynthesisUtterance(t.slides[i]);u.lang='he-IL';let done=0;const nx=()=>{if(done++)return;i++;setTimeout(show,500)};u.onend=nx;setTimeout(nx,Math.max(3000,t.slides[i].length*120));speechSynthesis.cancel();speechSynthesis.speak(u)};show()},
-practice(k,s,id){const t=C[k][s].find(x=>x.id===id),key=k+id;const it=G[t.gen]();let tries=0,step=0;
-$.innerHTML=`<div class=card><h3>${t.name}</h3><div style="font-size:1.3em">${it.q}</div>
-<button onclick="speak(CUR.say||CUR.q,CUR.lang)">🔊</button>
-<div id=ans>${it.choices?it.choices.map(c=>`<button onclick="chk(this.textContent)">${c}</button>`).join(''):`<input id=inp inputmode="decimal" onkeydown="if(event.key=='Enter')chk(this.value)"><button class=p onclick="chk(inp.value)">בדיקה</button><button onclick="listen(x=>{inp.value=x.replace(/[^\\d.\\-]/g,'')})">🎤</button>`}</div>
-<div id=fb></div><button onclick="hint()">💡 רמז שלב-אחר-שלב</button><button onclick="go('practice','${k}','${s}','${id}')">⏭ תרגיל חדש</button></div><button onclick="go('topic','${k}','${s}','${id}')">→ חזרה</button>`;
-window.CUR=it;const fb=document.getElementById('fb');
-window.hint=()=>{if(step<it.steps.length){fb.innerHTML+=`<p>💡 ${it.steps[step]}</p>`;speak(it.steps[step]);step++}};
-window.chk=u=>{if(u===''||u==null)return;const p=S.p[key]??={c:0,n:0};p.n++;tries++;const ok=typeof it.a==='number'?near(u,it.a)<=(it.tol||1e-9):String(u).trim()===String(it.a);
-const today=new Date().toDateString();if(!S.days.includes(today))S.days.push(today);
-if(ok){p.c++;S.streak++;S.best=Math.max(S.best,S.streak);const g=tries==1?10:5;S.pts+=g;if(tries==1)S.stars++;fb.innerHTML=`<p class=ok>✅ כל הכבוד! +${g} נקודות ${tries>1?'(על ההתמדה!)':''}</p>`;speak(P(['מצוין!','כל הכבוד!','יפה מאוד!']));
-if(S.streak==5)badge('רצף של 5');if(S.streak==20)badge('רצף של 20');if(p.c==10)badge('אלוף '+t.name);if(S.pts>=100)badge('100 נקודות');setTimeout(()=>go('practice',k,s,id),1500)}
-else{S.streak=0;S.pts+=1;const d=it.diag(u);const m=d||'לא מדויק. נסו שוב או בקשו רמז.';fb.innerHTML=`<p class=bad>❌ ${m}</p><p>+1 נקודת מאמץ 💪</p>`+(tries>=3?`<p>התשובה הנכונה: <b>${it.a}</b></p><p>${it.steps.join(' ← ')}</p>`:'');speak(m);if(tries==3)badge('לא מוותר')}
-save()}},
-dash(){const rows=Object.entries(C).flatMap(([k,g])=>[...g.math,...g.eng].map(t=>{const p=S.p[k+t.id];return p?`<tr><td>${g.name}</td><td>${t.name}</td><td>${p.c}/${p.n}</td><td>${Math.round(100*p.c/p.n)}%</td></tr>`:''})).join('');
-$.innerHTML=`<div class=card><h2>📊 ההתקדמות שלי</h2><p>⭐ כוכבים: ${S.stars} | 🏆 נקודות: ${S.pts} | 🔥 רצף שיא: ${S.best} | 📅 ימי תרגול: ${S.days.length}</p><p>🏅 ${S.badges.join(' · ')||'עוד אין תגים'}</p><table width=100%><tr><th>שכבה</th><th>נושא</th><th>נכון/ניסיונות</th><th>דיוק</th></tr>${rows}</table><button onclick="if(confirm('לאפס?')){localStorage.clear();location.reload()}">איפוס</button></div><button onclick="go('home')">→ חזרה</button>`},
-ask(){$.innerHTML=`<div class=card><h2>🎤 שאל את המורה</h2><p>שאלו על נושא (למשל "מה זה שיפוע" או "איך פותרים משוואה").</p><input id=q><button class=p onclick="ans(q.value)">שאל</button><button onclick="listen(x=>{q.value=x;ans(x)})">🎤 דבר</button><div id=out></div></div><button onclick="go('home')">→ חזרה</button>`;
-window.ans=x=>{const all=Object.entries(C).flatMap(([k,g])=>[...g.math,...g.eng].map(t=>({...t,k})));const w=x.split(/\s+/).filter(z=>z.length>2);let best=null,sc=0;all.forEach(t=>{const s=w.filter(z=>(t.name+t.exp).includes(z)).length;if(s>sc){sc=s;best=t}});const o=document.getElementById('out');if(best){o.innerHTML=`<p><b>${best.name}</b>: ${best.exp}</p>`;speak(best.name+'. '+best.exp)}else{o.innerHTML='<p>לא מצאתי — נסו מילה אחרת מהנושא.</p>';speak('לא מצאתי, נסו לנסח אחרת')}}}};
-stats();go('home');if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
-if(typeof module!=='undefined')module.exports={G};
+home(){app.innerHTML=`<section class=hero><h1>שלום! 👋</h1><p>בחרו שכבה. כל התוכן מבוסס על תכניות הלימודים ומסמכי המיקוד הרשמיים של משרד החינוך (תשפ"ו–תשפ"ז).</p></section>
+${Object.entries(C).map(([k,g])=>`<button class="gcard" onclick="go('grade','${k}','math')"><span class=gi>${g.icon}</span><div><h2>${g.name}</h2><small>${g.sub}</small><div class=mini><span>🔢 ${gradeM(k,'math')}%</span><span>🔤 ${gradeM(k,'eng')}%</span></div></div><span class=chev>‹</span></button>`).join('')}
+<div class=card><h3>🎯 היעד היומי</h3><p>תרגלו סבב אחד בכל יום כדי לשמור על הרצף 🔥. רצף נוכחי: <b>${S.streak}</b> ימים.</p></div>`},
+grade(k,s='math'){const g=C[k],ts=g[s],units=[...new Set(ts.map(t=>t.unit))];
+app.innerHTML=`${back("go('home')",'כל השכבות')}<h1 class=title>${g.icon} ${g.name}</h1><div class=seg><button class="${s=='math'?'on':''}" onclick="go('grade','${k}','math')">🔢 מתמטיקה</button><button class="${s=='eng'?'on':''}" onclick="go('grade','${k}','eng')">🔤 אנגלית</button></div>
+<div class="card sum">${ring(gradeM(k,s))}<div><b>שליטה כוללת</b><p>${ts.length} נושאים במפה. כל נושא: דף לימוד + תרגול.</p></div></div>
+${units.map(u=>`<h3 class=unit>${u}</h3><div class=path>${ts.filter(t=>t.unit==u).map(t=>{const m=mastery(k+t.id),[lb,c]=mLabel(m);return`<button class="tcard ${t.gen.startsWith('bg_')?'bag':''}" onclick="go('topic','${k}','${s}','${t.id}')"><div class=tt><b>${t.name}</b><span class="lab ${c}">${lb}</span></div><div class=mbar><i style="width:${m}%"></i></div></button>`}).join('')}</div>`).join('')}`},
+topic(k,s,id){const t=findT(k,s,id),m=mastery(k+id),en=s=='eng';
+app.innerHTML=`${back(`go('grade','${k}','${s}')`,'מפת הנושאים')}<div class="card head"><small>${t.unit}</small><h1>${t.name}</h1><div class=mbar><i style="width:${m}%"></i></div><small>שליטה: ${m}% · ${mLabel(m)[0]}</small></div>
+${t.b.map(([h,x])=>`<div class="card blk"><div class=bh><h3>${h}</h3>${sb(h+'. '+x)}</div><p>${x}</p></div>`).join('')}
+${t.ex.map((e,i)=>`<div class="card ex"><div class=bh><h3>📝 דוגמה פתורה ${i+1}</h3>${sb('דוגמה: '+e.q+'. '+e.s.join('. ')+'. התשובה: '+e.a,en&&/^[A-Za-z]/.test(e.q)?'he':'he')}</div><p class=q>${e.q}</p><ol class=steps id=st${i}>${e.s.map((x,j)=>`<li ${j?'hidden':''}>${x}</li>`).join('')}<li hidden class=ans>✔ תשובה: <b>${e.a}</b></li></ol><button class=sm onclick="nextStep(${i})">הצג את השלב הבא ↓</button></div>`).join('')}
+${t.tip?`<div class="card tip">💡 ${t.tip}</div>`:''}
+<button class="btn big" onclick="go('practice','${k}','${s}','${id}')">${t.gen.startsWith('bg_')?'🎯 לשאלת בגרות':'✏️ לתרגול (8 שאלות)'}</button>`},
+practice(k,s,id){const t=findT(k,s,id);const SES={k,s,id,t,i:0,n:t.gen.startsWith('bg_')?1:8,ok:0,first:0,xp:0};window.SES=SES;
+G[t.gen]().multi?multiQ(SES,G[t.gen]()):oneQ(SES)},
+progress(){const all=Object.entries(C).flatMap(([k,g])=>['math','eng'].flatMap(s=>g[s].map(t=>({k,g,s,t,m:mastery(k+t.id)})))).filter(x=>S.p[x.k+x.t.id]);
+app.innerHTML=`<h1 class=title>📊 ההתקדמות שלי</h1><div class=stats><div><b>${lvl(S.xp)}</b><small>רמה</small></div><div><b>${S.xp}</b><small>XP</small></div><div><b>${S.streak}🔥</b><small>רצף ימים</small></div><div><b>${S.answered}</b><small>תשובות נכונות</small></div></div>
+<h3 class=unit>🏅 תגים</h3><div class=badges>${Object.entries(BADGES).map(([id,[e,n]])=>`<div class="bd ${S.badges.includes(id)?'':'lock'}"><span>${S.badges.includes(id)?e:'🔒'}</span><small>${n}</small></div>`).join('')}</div>
+<h3 class=unit>📈 שליטה לפי נושא</h3>${all.length?all.map(x=>`<button class=tcard onclick="go('topic','${x.k}','${x.s}','${x.t.id}')"><div class=tt><b>${x.t.name}</b><small>${x.g.name}</small></div><div class=mbar><i style="width:${x.m}%"></i></div></button>`).join(''):'<div class=card>עוד לא תרגלתם. בחרו נושא ותתחילו!</div>'}
+<button class="btn ghost" onclick="if(confirm('לאפס את כל ההתקדמות?')){localStorage.removeItem('study3');location.reload()}">איפוס התקדמות</button>`},
+shop(){const it=(arr,kind)=>arr.map(a=>{const own=S.owned.includes(a[0]),cur=S.theme==a[0]||S.avatar==a[0],price=kind=='t'?a[2]:a[2];return`<button class="item ${cur?'cur':''}" onclick="buy('${a[0]}',${price},'${kind}')">${kind=='t'?`<span class=sw style="background:linear-gradient(135deg,${a[3]},${a[4]})"></span><small>${a[1]}</small>`:`<span class=em>${a[1]}</span>`}<small>${cur?'✔ בשימוש':own?'בחירה':'🪙 '+price}</small></button>`}).join('');
+app.innerHTML=`<h1 class=title>🛍️ חנות הפרסים</h1><div class="card sum"><span class=em>🪙</span><div><b>${S.coins} מטבעות</b><p>מרוויחים מטבעות על כל תשובה נכונה (5 בניסיון ראשון) ובונוס על סיום סבב.</p></div></div><h3 class=unit>🎨 ערכות צבע</h3><div class=shop>${it(THEMES,'t')}</div><h3 class=unit>🧸 דמויות</h3><div class=shop>${it(AVAS,'a')}</div>`}};
+function buy(id,price,kind){if(!S.owned.includes(id)){if(S.coins<price)return toast(`חסרים ${price-S.coins} מטבעות 🪙`);S.coins-=price;S.owned.push(id);badge('shop');toast('נקנה! 🎉')}if(kind=='t'){S.theme=id;theme()}else S.avatar=id;save();go('shop')}
+function nextStep(i){const h=[...document.querySelectorAll(`#st${i} li[hidden]`)];if(h[0])h[0].hidden=false}
+
+// ===== תרגול =====
+const norm=x=>String(x).trim().replace(/[\s,]/g,'').toLowerCase();
+const isOk=(it,u)=>typeof it.a==='number'?near(u,it.a)<=(it.tol||1e-9):norm(u)===norm(it.a);
+function record(key,ok){const p=S.p[key]??={h:[]};if(!p.h)p.h=[];p.h.push(ok?1:0);if(p.h.length>10)p.h.shift()}
+function pbar(ses){return`<div class=phead><button class=x onclick="go('topic','${ses.k}','${ses.s}','${ses.id}')">✕</button><div class=pbar><i style="width:${100*ses.i/ses.n}%"></i></div><span>${ses.i+1}/${ses.n}</span></div>`}
+function answerUI(it,pre){return it.choices?`<div class=choices>${it.choices.map(c=>`<button class=ch onclick="${pre}(this,this.dataset.v)" data-v="${String(c).replace(/"/g,'&quot;')}">${c}</button>`).join('')}</div>`:`<div class=inrow><input id=in_${pre} inputmode="${typeof it.a==='number'?'decimal':'text'}" placeholder="התשובה שלכם" autocomplete=off onkeydown="if(event.key=='Enter')${pre}(this,this.value)"><button class=mic onclick="listen(x=>{in_${pre}.value=${typeof it.a==='number'?"x.replace(/[^\\d.\\-]/g,'')":'x'}},'${it.lang||'he'}')">🎤</button></div><button class="btn" onclick="${pre}(this,in_${pre}.value)">בדיקה</button>`}
+function oneQ(ses){const it=G[ses.t.gen]();let tries=0,step=0;window.CUR=it;
+app.innerHTML=`${pbar(ses)}<div class="card qcard"><div class=bh><small>${ses.t.name}</small>${sb(it.say||it.q,it.lang||'he')}</div><div class=qt ${it.lang=='en'?'dir=ltr':''}>${it.q}</div></div>${answerUI(it,'chk')}<div id=fb></div><div class=row><button class="btn ghost" onclick="hint()">💡 רמז</button></div><div id=hints></div>`;
+window.hint=()=>{if(step<it.steps.length){$('hints').insertAdjacentHTML('beforeend',`<div class="card hint">${step+1}. ${it.steps[step]}</div>`);step++}else toast('אין עוד רמזים')};
+window.chk=(el,u)=>{if(u===''||u==null||ses.done)return;tries++;const ok=isOk(it,u);touchDay();
+if(el&&el.classList.contains('ch'))el.classList.add(ok?'good':'bad');
+if(ok){ses.done=1;record(ses.k+ses.id,tries==1);ses.ok++;S.answered++;if(tries==1)ses.first++;const x=tries==1?10:5,c=tries==1?5:2;ses.xp+=x;reward(x,c);badge('first');if(tries==3)badge('persist');if(S.answered>=100)badge('q100');
+$('fb').innerHTML=`<div class="fbk good"><b>${P(['מצוין! 🎉','כל הכבוד! ✨','בול! 💪','יפה מאוד! 🌟'])}</b><span>+${x} XP · +${c} 🪙</span><button class="btn" onclick="nextQ()">המשך ←</button></div>`}
+else{record(ses.k+ses.id,0);const d=it.diag(u)||'עוד לא. נסו שוב או קחו רמז.';$('fb').innerHTML=`<div class="fbk bad"><b>❌ ${d}</b>${tries>=2?`<div class=sol><p>הפתרון:</p><ol>${it.steps.map(x=>`<li>${x}</li>`).join('')}</ol><p>תשובה: <b>${it.a}</b></p></div><button class="btn" onclick="ses_skip()">המשך ←</button>`:''}</div>`;if(tries>=2){ses.done=1}}
+save()};
+window.ses_skip=()=>nextQ();window.nextQ=()=>{ses.done=0;ses.i++;if(ses.i>=ses.n)return finish(ses);oneQ(ses)}}
+function multiQ(ses,it){ses.n=it.parts.length;const st=it.parts.map(()=>({tries:0,step:0,done:0}));
+app.innerHTML=`<div class=phead><button class=x onclick="go('topic','${ses.k}','${ses.s}','${ses.id}')">✕</button><b>🎯 שאלת בגרות · אשכול ${it.cluster}</b></div><div class="card qcard"><div class=bh><small>שאלון 35371 · במתכונת הבחינה</small>${sb(it.stem)}</div><p class=stem>${it.stem}</p></div>
+${it.parts.map((p,i)=>`<div class="card part" id=pt${i}><div class=bh><b class=pl>${p.l}</b><p>${p.q}</p>${sb('סעיף '+p.l+'. '+p.q)}</div><div class=inrow><input id=in${i} inputmode=decimal placeholder="תשובה" onkeydown="if(event.key=='Enter')pchk(${i})"></div><div class=row><button class=btn onclick="pchk(${i})">בדיקה</button><button class="btn ghost" onclick="phint(${i})">💡</button></div><div id=pf${i}></div></div>`).join('')}<div id=fin></div>`;
+window.phint=i=>{const p=it.parts[i],s=st[i];if(s.step<p.steps.length){$('pf'+i).insertAdjacentHTML('beforeend',`<div class=hint>${s.step+1}. ${p.steps[s.step++]}</div>`)}};
+window.pchk=i=>{const p=it.parts[i],s=st[i],u=$('in'+i).value;if(!u||s.done)return;s.tries++;touchDay();const ok=isOk(p,u);
+if(ok){s.done=1;record(ses.k+ses.id,s.tries==1);ses.ok++;S.answered++;S.bagrutParts++;const x=s.tries==1?15:8;ses.xp+=x;reward(x,s.tries==1?6:3);badge('first');if(S.bagrutParts>=10)badge('bag10');$('pf'+i).innerHTML=`<div class="fbk good"><b>✅ נכון!</b><span>+${x} XP</span></div>`;$('pt'+i).classList.add('done')}
+else{record(ses.k+ses.id,0);const d=p.diag(u)||'לא מדויק — בדקו את החישוב או קחו רמז.';$('pf'+i).innerHTML=`<div class="fbk bad"><b>❌ ${d}</b>${s.tries>=3?`<div class=sol><ol>${p.steps.map(x=>`<li>${x}</li>`).join('')}</ol>תשובה: <b>${p.a}</b></div>`:''}</div>`;if(s.tries>=3)s.done=1}
+if(st.every(x=>x.done)){ses.i=ses.n;$('fin').innerHTML=`<button class="btn big" onclick="finish(SES)">סיום ←</button>`}save()}}
+function finish(ses){const perfect=ses.ok==ses.n&&(ses.first==ses.n||ses.t.gen.startsWith('bg_'));const bonus=20+(perfect?20:0);reward(bonus,10);if(perfect)badge('perfect');if(mastery(ses.k+ses.id)>=90)badge('master');save();
+const m=mastery(ses.k+ses.id);app.innerHTML=`<div class="card done-card"><div class=big-e>${perfect?'🏆':'🎉'}</div><h1>${perfect?'סבב מושלם!':'סיימתם סבב!'}</h1><p>${ses.ok} מתוך ${ses.n} נכונות</p><div class=stats><div><b>+${ses.xp+bonus}</b><small>XP</small></div><div><b>${m}%</b><small>שליטה בנושא</small></div><div><b>${S.streak}🔥</b><small>רצף</small></div></div></div>
+<button class="btn big" onclick="go('practice','${ses.k}','${ses.s}','${ses.id}')">עוד סבב</button><button class="btn ghost" onclick="go('topic','${ses.k}','${ses.s}','${ses.id}')">חזרה לדף הלימוד</button><button class="btn ghost" onclick="go('grade','${ses.k}','${ses.s}')">למפת הנושאים</button>`}
+
+theme();bar();go('home');
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');

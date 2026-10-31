@@ -1,4 +1,8 @@
-global.document={getElementById:()=>({set textContent(v){},set innerHTML(v){}})};global.localStorage={};global.navigator={};global.scrollTo=()=>{};
-const {G}=require('./app.js');let bad=0;
-for(const [k,f] of Object.entries(G))for(let i=0;i<500;i++){const it=f();if(it.a===undefined||Number.isNaN(it.a)||it.a===Infinity){bad++;console.log(k,it.q,it.a)}if(it.choices&&!it.choices.includes(it.a)){bad++;console.log('choice',k,it.q,it.a)}const u=String(it.a),ok=typeof it.a==='number'?Math.abs(parseFloat(u)-it.a)<=(it.tol||1e-9):u.trim()===String(it.a);if(!ok){bad++;console.log('not-accepted',k,it.q)}try{it.diag('999999');it.diag('abc')}catch(e){bad++;console.log('diag err',k,e.message)}}
-console.log(Object.keys(G).length+' generators');console.log(bad?'FAIL '+bad:'ALL OK');
+const {G}=require('./gen.js');const {C}=require('./curriculum.js');
+const near=(u,a)=>Math.abs(parseFloat(String(u).replace(/,/g,''))-a);
+const norm=x=>String(x).trim().replace(/[\s,]/g,'').toLowerCase();
+const isOk=(it,u)=>typeof it.a==='number'?near(u,it.a)<=(it.tol||1e-9):norm(u)===norm(it.a);
+let bad=0,n=0;const chk=(name,it)=>{if(it.a===undefined||Number.isNaN(it.a)||it.a===Infinity)throw name+' bad a';if(it.choices&&!it.choices.map(String).includes(String(it.a)))throw name+' a not in choices';if(!isOk(it,String(it.a)))throw name+' ok-logic rejects a';it.diag('999999');it.diag('abc');if(!it.steps||!it.steps.length)throw name+' no steps'};
+for(const g in G){n++;try{for(let i=0;i<500;i++){const it=G[g]();if(it.multi){if(!it.stem||it.parts.length<2)throw g+' multi';it.parts.forEach(p=>chk(g+'/'+p.l,p))}else chk(g,it)}}catch(e){bad++;console.log('FAIL',g,e)}}
+for(const k in C)for(const s of['math','eng'])for(const t of C[k][s]){if(!G[t.gen]){bad++;console.log('missing gen',t.gen)}if(!t.b.length){bad++;console.log('no lesson',t.id)}}
+console.log(n+' generators',bad?bad+' FAIL':'ALL OK');process.exit(bad?1:0);
